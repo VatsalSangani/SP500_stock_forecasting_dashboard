@@ -6,7 +6,7 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (for pandas, pyarrow, etc.)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -24,8 +24,12 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy project files
 COPY . .
 
-# Streamlit config
-EXPOSE 8501
+# Copy entrypoint and make executable
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
-# Run the dashboard
-CMD ["streamlit", "run", "app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Expose the new port
+EXPOSE 8503
+
+# Run the application
+ENTRYPOINT ["./entrypoint.sh"]
