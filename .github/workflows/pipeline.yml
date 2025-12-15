@@ -8,20 +8,20 @@ on:
 permissions:
   contents: read
   packages: write
-  
+
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-    
+
     # --- CONFIGURATION ---
     env:
       REGISTRY: ghcr.io
-      # Ensure this matches your repo name exactly (lowercase)
+      # MUST be lowercase to match Docker standards
       IMAGE_NAME: vatsalsangani/sp500_stock_forecasting_dashboard
       CONTAINER_NAME: sp500-dashboard
       BUILD_CONTEXT: .
       DOCKERFILE_PATH: ./Dockerfile
-      
+
     steps:
       # 1. Checkout Code
       - name: Checkout repository
@@ -30,7 +30,7 @@ jobs:
       # 2. Set up Docker Build Tools
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -41,8 +41,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       # 4. Build and Push Docker Image
+      # We use no-cache to ensure the latest S3 scripts and code are always included
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -50,8 +51,8 @@ jobs:
           file: ${{ env.DOCKERFILE_PATH }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          no-cache: true # Forces a fresh build so new code/scripts are included
-          
+          no-cache: true
+
       # 5. Configure AWS Credentials for SSM
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -60,12 +61,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 6. Deploy via AWS SSM (JSON Safe Formula)
+      # 6. Deploy via AWS SSM (The "Credit Risk" Winning Formula)
       - name: Deploy Docker via AWS CLI SSM Command
         run: |
           # --- A. PREPARE DEPLOY SCRIPT ---
-          # We write the script locally first. GitHub replaces ${{ variables }} here.
-          
+          # We write the script locally first so GitHub handles the variables ($IMAGE_NAME)
+          # safely before we convert it to JSON.
+
           cat <<EOF > deploy_script.sh
           #!/bin/bash
           set -e
@@ -74,6 +76,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           # 2. Cleanup: Force remove old container & image
+          # We use -fv to forcefully stop and remove the running container
           sudo docker rm -fv ${{ env.CONTAINER_NAME }} 2>/dev/null || true
           sudo docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null || true
 
@@ -81,8 +84,8 @@ jobs:
           sudo docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
           # 4. Run new container
-          # - Maps Host Port 8503 -> Container Port 8501
-          # - Passes AWS Credentials so the container can run 'aws s3 sync'
+          # - MAPPING: Host 8503 -> Container 8501 (Streamlit Default)
+          # - CREDENTIALS: We pass AWS keys so the container can run 'aws s3 sync' on startup
           sudo docker run -d \
             --name ${{ env.CONTAINER_NAME }} \
             -p 8503:8501 \
@@ -94,7 +97,7 @@ jobs:
           EOF
 
           # --- B. GENERATE SAFE JSON PAYLOAD ---
-          # Uses jq to handle newlines/quotes safely for AWS CLI
+          # Uses jq to handle newlines/quotes safely for AWS CLI (Fixes the parsing error)
           PARAMETERS=$(jq -n \
             --arg cmd "$(cat deploy_script.sh)" \
             --arg dir "/home/ec2-user" \
