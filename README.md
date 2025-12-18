@@ -16,7 +16,7 @@ This project automates the ETL pipeline (Extract → Transform → Load), genera
 
 ## 🚀 Features
 - **ETL Pipeline** (local system → S3)
-  - Extract historical stock data
+  - Extract historical stock data.
   - Compute technical indicators (EMA, VWAP, RSI, ATR)
   - Fetch company fundamentals (P/E ratio, EPS, Dividend Yield, Market Cap, etc.)
   - Forecast future prices using **Facebook Prophet**
