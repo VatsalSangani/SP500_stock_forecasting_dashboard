@@ -9,7 +9,6 @@ This project automates the ETL pipeline (Extract → Transform → Load), genera
 - End-to-end pipeline from data ingestion → processing → forecasting → dashboard.
 - Technical + fundamental analysis combined in one platform.
 - 7-day Prophet forecasts with confidence intervals.
-- Weekly refresh from AWS S3 → EC2 without manual intervention.
 - Dockerized deployment with GitHub Actions for continuous integration.
 
 
